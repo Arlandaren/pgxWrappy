@@ -25,7 +25,7 @@
 Используйте `go get` для установки пакета:
 
 ```bash
-go get -u github.com/Arlandaren/postgres
+go get -u github.com/Arlandaren/pgxWrappy/postgres
 ```
 
 ## Использование
