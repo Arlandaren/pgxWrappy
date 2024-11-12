@@ -1,4 +1,4 @@
-module wrapper
+module github.com/Arlandaren/pgxWrappy
 
 go 1.23.2
 
