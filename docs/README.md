@@ -32,7 +32,7 @@ go get -u github.com/Arlandaren/pgxWrappy/postgres
 Импортируйте пакет в ваш проект:
 
 ```go
-import "github.com/yourusername/postgres"
+import "github.com/Arlandaren/pgxWrappy/postgres"
 ```
 
 ## Структура `Wrapper`
