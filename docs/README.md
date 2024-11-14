@@ -24,7 +24,7 @@
 Используйте `go get` для установки пакета:
 
 ```bash
-go get -u github.com/Arlandaren/pgxWrappy/postgres
+go get -u github.com/Arlandaren/pgxWrappy/pkg/postgres
 ```
 
 ## Использование
@@ -32,7 +32,7 @@ go get -u github.com/Arlandaren/pgxWrappy/postgres
 Импортируйте пакет в ваш проект:
 
 ```go
-import "github.com/Arlandaren/pgxWrappy/postgres"
+import "github.com/Arlandaren/pgxWrappy/pkg/postgres"
 ```
 
 ## Структура `Wrapper`
