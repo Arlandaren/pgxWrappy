@@ -343,18 +343,19 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
         }
 
         // Проверяем, является ли поле структурой или указателем на структуру
-        if (fieldValue.Kind() == reflect.Struct && field.Anonymous) || (fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct) {
+        if fieldValue.Kind() == reflect.Struct {
             // Рекурсивно собираем поля вложенной структуры
-            if fieldValue.Kind() == reflect.Ptr {
-                if fieldValue.IsNil() {
-                    fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
-                }
-                fieldValue = fieldValue.Elem()
-            }
             collectFields(fieldValue, colName, fieldMap)
+        } else if fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct {
+            // Инициализируем нулевой указатель на структуру
+            if fieldValue.IsNil() {
+                fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+            }
+            collectFields(fieldValue.Elem(), colName, fieldMap)
         } else {
             // Добавляем поле в карту
             fieldMap[colName] = fieldValue
         }
     }
 }
+
