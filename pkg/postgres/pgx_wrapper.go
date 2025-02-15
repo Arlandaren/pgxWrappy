@@ -248,37 +248,70 @@ func (tw *TxWrapper) Rollback(ctx context.Context) error {
 
 // Вспомогательная функция для создания слайса структур
 func structFieldsPointers(strct interface{}, columns []string) ([]interface{}, error) {
-	v := reflect.ValueOf(strct)
+    v := reflect.ValueOf(strct)
 
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
+    if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+        return nil, errors.New("input must be a pointer to a struct")
+    }
 
-	if v.Kind() != reflect.Struct {
-		return nil, errors.New("input must be a struct or pointer to struct")
-	}
+    fieldMap := make(map[string]reflect.Value)
+    collectFields(v.Elem(), "", fieldMap)
 
-	t := v.Type()
+    fields := make([]interface{}, len(columns))
+    for i, col := range columns {
+        fieldVal, ok := fieldMap[col]
+        if !ok {
+            return nil, fmt.Errorf("no matching struct field found for column %s", col)
+        }
+        fields[i] = fieldVal.Addr().Interface()
+    }
 
-	fieldMap := make(map[string]int)
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
+    return fields, nil
+}
 
-		tag := field.Tag.Get("db")
-		if tag == "" {
-			tag = field.Name
-		}
-		fieldMap[tag] = i
-	}
+// Рекурсивная функция для сбора полей, включая вложенные структуры
+func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.Value) {
+    t := v.Type()
 
-	fields := make([]interface{}, len(columns))
-	for i, col := range columns {
-		idx, ok := fieldMap[col]
-		if !ok {
-			return nil, fmt.Errorf("no matching struct field found for column %s", col)
-		}
-		fields[i] = v.Field(idx).Addr().Interface()
-	}
+    for i := 0; i < v.NumField(); i++ {
+        field := t.Field(i)
+        fieldValue := v.Field(i)
 
-	return fields, nil
+        // Пропускаем неэкспортируемые поля
+        if !fieldValue.CanSet() {
+            continue
+        }
+
+        // Проверяем тег db
+        tag := field.Tag.Get("db")
+        if tag == "-" {
+            continue
+        }
+        if tag == "" {
+            tag = field.Name
+        }
+
+        // Создаем полное имя колонки
+        var colName string
+        if prefix != "" {
+            colName = prefix + "_" + tag
+        } else {
+            colName = tag
+        }
+
+        // Проверяем, является ли поле структурой или указателем на структуру
+        if (fieldValue.Kind() == reflect.Struct && field.Anonymous) || (fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct) {
+            // Рекурсивно собираем поля вложенной структуры
+            if fieldValue.Kind() == reflect.Ptr {
+                if fieldValue.IsNil() {
+                    fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+                }
+                fieldValue = fieldValue.Elem()
+            }
+            collectFields(fieldValue, colName, fieldMap)
+        } else {
+            // Добавляем поле в карту
+            fieldMap[colName] = fieldValue
+        }
+    }
 }
