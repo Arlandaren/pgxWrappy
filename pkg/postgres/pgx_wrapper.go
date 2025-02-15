@@ -44,81 +44,102 @@ func (w *Wrapper) Exec(ctx context.Context, sql string, args ...interface{}) (pg
 }
 
 // Get - функция для выполнения запроса, который возвращает одну строку, и сканирования ее в переданную структуру
-func (w *Wrapper) Get(ctx context.Context, dest interface{}, sql string, args ...interface{}) error {
-	destVal := reflect.ValueOf(dest)
-	if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
-		return errors.New("dest must be a pointer to a struct")
-	}
+func (w *Wrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
+    destVal := reflect.ValueOf(dest)
+    if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
+        return errors.New("dest must be a pointer to a struct")
+    }
 
-	destElem := destVal.Elem()
-	numFields := destElem.NumField()
-	scanArgs := make([]interface{}, numFields)
+    rows, err := w.pool.Query(ctx, sqlStr, args...)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
 
-	for i := 0; i < numFields; i++ {
-		field := destElem.Field(i)
-		scanArgs[i] = field.Addr().Interface()
-	}
+    // Проверяем, есть ли хотя бы одна строка
+    if !rows.Next() {
+        if err := rows.Err(); err != nil {
+            return err
+        }
+        return pgx.ErrNoRows // или любая другая подходящая ошибка
+    }
 
-	row := w.pool.QueryRow(ctx, sql, args...)
+    // Получаем названия колонок
+    fieldDescriptions := rows.FieldDescriptions()
+    columns := make([]string, len(fieldDescriptions))
+    for i, fd := range fieldDescriptions {
+        columns[i] = string(fd.Name)
+    }
 
-	return row.Scan(scanArgs...)
+    // Получаем указатели на поля структуры
+    fields, err := structFieldsPointers(dest, columns)
+    if err != nil {
+        return err
+    }
+
+    // Считываем данные в поля структуры
+    if err := rows.Scan(fields...); err != nil {
+        return err
+    }
+
+    return nil
 }
 
+
 // Select - функция для получения нескольких результатов и их сканирования в слайс
-func (w *Wrapper) Select(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
-	rows, err := w.pool.Query(ctx, sqlStr, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
+func (w*Wrapper) Select(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
+    rows, err := w.pool.Query(ctx, sqlStr, args...)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
 
-	destVal := reflect.ValueOf(dest)
-	if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
-		return errors.New("dest must be a pointer to a slice")
-	}
+    destVal := reflect.ValueOf(dest)
+    if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
+        return errors.New("dest must be a pointer to a slice")
+    }
 
-	sliceVal := destVal.Elem()
-	elemType := sliceVal.Type().Elem()
+    sliceVal := destVal.Elem()
+    elemType := sliceVal.Type().Elem()
 
-	ptrToStruct := false
-	if elemType.Kind() == reflect.Ptr && elemType.Elem().Kind() == reflect.Struct {
-		ptrToStruct = true
-		elemType = elemType.Elem()
-	} else if elemType.Kind() != reflect.Struct {
-		return errors.New("slice elements must be structs or pointers to structs")
-	}
+    ptrToStruct := false
+    if elemType.Kind() == reflect.Ptr && elemType.Elem().Kind() == reflect.Struct {
+        ptrToStruct = true
+        elemType = elemType.Elem()
+    } else if elemType.Kind() != reflect.Struct {
+        return errors.New("slice elements must be structs or pointers to structs")
+    }
 
-	fieldsDescriptions := rows.FieldDescriptions()
-	columns := make([]string, len(fieldsDescriptions))
-	for i, fd := range fieldsDescriptions {
-		columns[i] = string(fd.Name)
-	}
+    fieldDescriptions := rows.FieldDescriptions()
+    columns := make([]string, len(fieldDescriptions))
+    for i, fd := range fieldDescriptions {
+        columns[i] = string(fd.Name)
+    }
 
-	for rows.Next() {
+    for rows.Next() {
+        elemPtr := reflect.New(elemType)
 
-		elemPtr := reflect.New(elemType)
+        fields, err := structFieldsPointers(elemPtr.Interface(), columns)
+        if err != nil {
+            return err
+        }
 
-		fields, err := structFieldsPointers(elemPtr.Interface(), columns)
-		if err != nil {
-			return err
-		}
+        if err := rows.Scan(fields...); err != nil {
+            return err
+        }
 
-		if err := rows.Scan(fields...); err != nil {
-			return err
-		}
+        if ptrToStruct {
+            sliceVal.Set(reflect.Append(sliceVal, elemPtr))
+        } else {
+            sliceVal.Set(reflect.Append(sliceVal, elemPtr.Elem()))
+        }
+    }
 
-		if ptrToStruct {
-			sliceVal.Set(reflect.Append(sliceVal, elemPtr))
-		} else {
-			sliceVal.Set(reflect.Append(sliceVal, elemPtr.Elem()))
-		}
-	}
+    if err := rows.Err(); err != nil {
+        return err
+    }
 
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	return nil
+    return nil
 }
 
 // Begin - метод для начала транзакции
@@ -160,80 +181,102 @@ func (tw *TxWrapper) Exec(ctx context.Context, sql string, args ...interface{}) 
 }
 
 // Get - функция для выполнения запроса в транзакции, который возвращает одну строку, и сканирования ее в структуру
-func (tw *TxWrapper) Get(ctx context.Context, dest interface{}, sql string, args ...interface{}) error {
-	destVal := reflect.ValueOf(dest)
-	if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
-		return errors.New("dest must be a pointer to a struct")
-	}
+func (tw*TxWrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
+    destVal := reflect.ValueOf(dest)
+    if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
+        return errors.New("dest must be a pointer to a struct")
+    }
 
-	destElem := destVal.Elem()
-	numFields := destElem.NumField()
-	scanArgs := make([]interface{}, numFields)
+    rows, err := tw.tx.Query(ctx, sqlStr, args...)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
 
-	for i := 0; i < numFields; i++ {
-		field := destElem.Field(i)
-		scanArgs[i] = field.Addr().Interface()
-	}
+    // Проверяем, есть ли хотя бы одна строка
+    if !rows.Next() {
+        if err := rows.Err(); err != nil {
+            return err
+        }
+        return pgx.ErrNoRows // или любая другая подходящая ошибка
+    }
 
-	row := tw.tx.QueryRow(ctx, sql, args...)
+    // Получаем названия колонок
+    fieldDescriptions := rows.FieldDescriptions()
+    columns := make([]string, len(fieldDescriptions))
+    for i, fd := range fieldDescriptions {
+        columns[i] = string(fd.Name)
+    }
 
-	return row.Scan(scanArgs...)
+    // Получаем указатели на поля структуры
+    fields, err := structFieldsPointers(dest, columns)
+    if err != nil {
+        return err
+    }
+
+    // Считываем данные в поля структуры
+    if err := rows.Scan(fields...); err != nil {
+        return err
+    }
+
+    return nil
 }
 
+
 // Select - функция для получения нескольких результатов в транзакции и их сканирования в слайс
-func (tw *TxWrapper) Select(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
-	rows, err := tw.tx.Query(ctx, sqlStr, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
+func (tw*TxWrapper) Select(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
+    rows, err := tw.tx.Query(ctx, sqlStr, args...)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
 
-	destVal := reflect.ValueOf(dest)
-	if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
-		return errors.New("dest must be a pointer to a slice")
-	}
+    destVal := reflect.ValueOf(dest)
+    if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
+        return errors.New("dest must be a pointer to a slice")
+    }
 
-	sliceVal := destVal.Elem()
-	elemType := sliceVal.Type().Elem()
+    sliceVal := destVal.Elem()
+    elemType := sliceVal.Type().Elem()
 
-	ptrToStruct := false
-	if elemType.Kind() == reflect.Ptr && elemType.Elem().Kind() == reflect.Struct {
-		ptrToStruct = true
-		elemType = elemType.Elem()
-	} else if elemType.Kind() != reflect.Struct {
-		return errors.New("slice elements must be structs or pointers to structs")
-	}
+    ptrToStruct := false
+    if elemType.Kind() == reflect.Ptr && elemType.Elem().Kind() == reflect.Struct {
+        ptrToStruct = true
+        elemType = elemType.Elem()
+    } else if elemType.Kind() != reflect.Struct {
+        return errors.New("slice elements must be structs or pointers to structs")
+    }
 
-	fieldsDescriptions := rows.FieldDescriptions()
-	columns := make([]string, len(fieldsDescriptions))
-	for i, fd := range fieldsDescriptions {
-		columns[i] = string(fd.Name)
-	}
+    fieldDescriptions := rows.FieldDescriptions()
+    columns := make([]string, len(fieldDescriptions))
+    for i, fd := range fieldDescriptions {
+        columns[i] = string(fd.Name)
+    }
 
-	for rows.Next() {
-		elemPtr := reflect.New(elemType)
+    for rows.Next() {
+        elemPtr := reflect.New(elemType)
 
-		fields, err := structFieldsPointers(elemPtr.Interface(), columns)
-		if err != nil {
-			return err
-		}
+        fields, err := structFieldsPointers(elemPtr.Interface(), columns)
+        if err != nil {
+            return err
+        }
 
-		if err := rows.Scan(fields...); err != nil {
-			return err
-		}
+        if err := rows.Scan(fields...); err != nil {
+            return err
+        }
 
-		if ptrToStruct {
-			sliceVal.Set(reflect.Append(sliceVal, elemPtr))
-		} else {
-			sliceVal.Set(reflect.Append(sliceVal, elemPtr.Elem()))
-		}
-	}
+        if ptrToStruct {
+            sliceVal.Set(reflect.Append(sliceVal, elemPtr))
+        } else {
+            sliceVal.Set(reflect.Append(sliceVal, elemPtr.Elem()))
+        }
+    }
 
-	if err := rows.Err(); err != nil {
-		return err
-	}
+    if err := rows.Err(); err != nil {
+        return err
+    }
 
-	return nil
+    return nil
 }
 
 // Commit - метод для фиксации транзакции
