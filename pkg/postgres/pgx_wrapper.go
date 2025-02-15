@@ -50,25 +50,10 @@ func (w *Wrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args
         return errors.New("dest must be a pointer to a struct")
     }
 
-    rows, err := w.pool.Query(ctx, sqlStr, args...)
+    // Получаем ожидаемые имена колонок из структуры назначения
+    columns, err := getColumnNames(dest)
     if err != nil {
         return err
-    }
-    defer rows.Close()
-
-    // Проверяем, есть ли хотя бы одна строка
-    if !rows.Next() {
-        if err := rows.Err(); err != nil {
-            return err
-        }
-        return pgx.ErrNoRows // или любая другая подходящая ошибка
-    }
-
-    // Получаем названия колонок
-    fieldDescriptions := rows.FieldDescriptions()
-    columns := make([]string, len(fieldDescriptions))
-    for i, fd := range fieldDescriptions {
-        columns[i] = string(fd.Name)
     }
 
     // Получаем указатели на поля структуры
@@ -77,8 +62,11 @@ func (w *Wrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args
         return err
     }
 
+    // Выполняем запрос
+    row := w.pool.QueryRow(ctx, sqlStr, args...)
+
     // Считываем данные в поля структуры
-    if err := rows.Scan(fields...); err != nil {
+    if err := row.Scan(fields...); err != nil {
         return err
     }
 
@@ -181,31 +169,16 @@ func (tw *TxWrapper) Exec(ctx context.Context, sql string, args ...interface{}) 
 }
 
 // Get - функция для выполнения запроса в транзакции, который возвращает одну строку, и сканирования ее в структуру
-func (tw*TxWrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
+func (tw *TxWrapper) Get(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error {
     destVal := reflect.ValueOf(dest)
     if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
         return errors.New("dest must be a pointer to a struct")
     }
 
-    rows, err := tw.tx.Query(ctx, sqlStr, args...)
+    // Получаем ожидаемые имена колонок из структуры назначения
+    columns, err := getColumnNames(dest)
     if err != nil {
         return err
-    }
-    defer rows.Close()
-
-    // Проверяем, есть ли хотя бы одна строка
-    if !rows.Next() {
-        if err := rows.Err(); err != nil {
-            return err
-        }
-        return pgx.ErrNoRows // или любая другая подходящая ошибка
-    }
-
-    // Получаем названия колонок
-    fieldDescriptions := rows.FieldDescriptions()
-    columns := make([]string, len(fieldDescriptions))
-    for i, fd := range fieldDescriptions {
-        columns[i] = string(fd.Name)
     }
 
     // Получаем указатели на поля структуры
@@ -214,13 +187,17 @@ func (tw*TxWrapper) Get(ctx context.Context, dest interface{}, sqlStr string, ar
         return err
     }
 
+    // Выполняем запрос
+    row := tw.tx.QueryRow(ctx, sqlStr, args...)
+
     // Считываем данные в поля структуры
-    if err := rows.Scan(fields...); err != nil {
+    if err := row.Scan(fields...); err != nil {
         return err
     }
 
     return nil
 }
+
 
 
 // Select - функция для получения нескольких результатов в транзакции и их сканирования в слайс
@@ -359,3 +336,59 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
     }
 }
 
+// getColumnNames - рекурсивная функция для получения списка имен колонок из структуры
+func getColumnNames(dest interface{}) ([]string, error) {
+    var columns []string
+    destVal := reflect.ValueOf(dest)
+    if destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Struct {
+        return nil, errors.New("dest must be a pointer to a struct")
+    }
+    collectColumnNames(destVal.Elem(), "", &columns)
+    return columns, nil
+}
+
+// collectColumnNames - рекурсивно собирает имена колонок из структуры
+func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
+    t := v.Type()
+    for i := 0; i < v.NumField(); i++ {
+        field := t.Field(i)
+        fieldValue := v.Field(i)
+
+        // Пропускаем неэкспортируемые поля
+        if !fieldValue.CanSet() {
+            continue
+        }
+
+        // Проверяем тег db
+        tag := field.Tag.Get("db")
+        if tag == "-" {
+            continue
+        }
+        if tag == "" {
+            tag = field.Name
+        }
+
+        // Создаем полное имя колонки
+        var colName string
+        if prefix != "" {
+            colName = prefix + "_" + tag
+        } else {
+            colName = tag
+        }
+
+        // Проверяем, является ли поле структурой или указателем на структуру
+        if fieldValue.Kind() == reflect.Struct {
+            // Рекурсивно собираем имена колонок вложенной структуры
+            collectColumnNames(fieldValue, colName, columns)
+        } else if fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct {
+            // Инициализируем нулевой указатель на структуру
+            if fieldValue.IsNil() {
+                fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+            }
+            collectColumnNames(fieldValue.Elem(), colName, columns)
+        } else {
+            // Добавляем имя колонки в список
+		*columns = append(*columns, colName)
+        }
+    }
+}
