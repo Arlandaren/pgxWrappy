@@ -307,6 +307,7 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
                 // Process inner fields without adding prefix
                 collectFields(fieldValue, prefix, fieldMap)
             }
+            // Skip processing if it's not a struct
             continue
         }
         if tag == "" {
