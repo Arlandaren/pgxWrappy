@@ -297,12 +297,10 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
         field := t.Field(i)
         fieldValue := v.Field(i)
 
-        // Пропускаем неэкспортируемые поля
         if !fieldValue.CanSet() {
             continue
         }
 
-        // Проверяем тег db
         tag := field.Tag.Get("db")
         if tag == "-" {
             continue
@@ -311,26 +309,16 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
             tag = field.Name
         }
 
-        // Создаем полное имя колонки
         var colName string
-        if prefix != "" {
+        if prefix != "" && !field.Anonymous && tag != "-" {
             colName = prefix + "_" + tag
         } else {
             colName = tag
         }
 
-        // Проверяем, является ли поле структурой или указателем на структуру
         if fieldValue.Kind() == reflect.Struct {
-            // Рекурсивно собираем поля вложенной структуры
             collectFields(fieldValue, colName, fieldMap)
-        } else if fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct {
-            // Инициализируем нулевой указатель на структуру
-            if fieldValue.IsNil() {
-                fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
-            }
-            collectFields(fieldValue.Elem(), colName, fieldMap)
         } else {
-            // Добавляем поле в карту
             fieldMap[colName] = fieldValue
         }
     }
