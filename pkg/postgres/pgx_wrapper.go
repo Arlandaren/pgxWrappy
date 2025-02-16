@@ -289,7 +289,7 @@ func structFieldsPointers(strct interface{}, columns []string) ([]interface{}, e
     return fields, nil
 }
 
-// Рекурсивная функция для сбора полей, включая вложенные структуры
+// collectFields recursively collects fields, including nested structs
 func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.Value) {
     t := v.Type()
 
@@ -303,6 +303,10 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
 
         tag := field.Tag.Get("db")
         if tag == "-" {
+            if fieldValue.Kind() == reflect.Struct {
+                // Process inner fields without adding prefix
+                collectFields(fieldValue, prefix, fieldMap)
+            }
             continue
         }
         if tag == "" {
@@ -310,7 +314,7 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
         }
 
         var colName string
-        if prefix != "" && !field.Anonymous && tag != "-" {
+        if prefix != "" && !field.Anonymous {
             colName = prefix + "_" + tag
         } else {
             colName = tag
@@ -335,48 +339,40 @@ func getColumnNames(dest interface{}) ([]string, error) {
     return columns, nil
 }
 
-// collectColumnNames - рекурсивно собирает имена колонок из структуры
+// collectColumnNames recursively collects column names from the struct fields
 func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
     t := v.Type()
     for i := 0; i < v.NumField(); i++ {
         field := t.Field(i)
         fieldValue := v.Field(i)
 
-        // Пропускаем неэкспортируемые поля
         if !fieldValue.CanSet() {
             continue
         }
 
-        // Проверяем тег db
         tag := field.Tag.Get("db")
         if tag == "-" {
+            if fieldValue.Kind() == reflect.Struct {
+                // Collect names from inner struct without adding prefix
+                collectColumnNames(fieldValue, prefix, columns)
+            }
             continue
         }
         if tag == "" {
             tag = field.Name
         }
 
-        // Создаем полное имя колонки
         var colName string
-        if prefix != "" {
+        if prefix != "" && !field.Anonymous {
             colName = prefix + "_" + tag
         } else {
             colName = tag
         }
 
-        // Проверяем, является ли поле структурой или указателем на структуру
         if fieldValue.Kind() == reflect.Struct {
-            // Рекурсивно собираем имена колонок вложенной структуры
             collectColumnNames(fieldValue, colName, columns)
-        } else if fieldValue.Kind() == reflect.Ptr && fieldValue.Elem().Kind() == reflect.Struct {
-            // Инициализируем нулевой указатель на структуру
-            if fieldValue.IsNil() {
-                fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
-            }
-            collectColumnNames(fieldValue.Elem(), colName, columns)
         } else {
-            // Добавляем имя колонки в список
-		*columns = append(*columns, colName)
+            *columns = append(*columns, colName)
         }
     }
 }
