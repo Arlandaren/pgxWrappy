@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-
+    "database/sql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -319,6 +319,12 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
             colName = prefix + "_" + tag
         } else {
             colName = tag
+        }
+
+        scannerType := reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+        if fieldValue.Addr().Type().Implements(scannerType) {
+            fieldMap[colName] = fieldValue
+            continue
         }
 
         if fieldValue.Kind() == reflect.Struct {
