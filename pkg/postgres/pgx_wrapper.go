@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-    "database/sql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -321,12 +320,6 @@ func collectFields(v reflect.Value, prefix string, fieldMap map[string]reflect.V
             colName = tag
         }
 
-        scannerType := reflect.TypeOf((*sql.Scanner)(nil)).Elem()
-        if fieldValue.Addr().Type().Implements(scannerType) {
-            fieldMap[colName] = fieldValue
-            continue
-        }
-
         if fieldValue.Kind() == reflect.Struct {
             collectFields(fieldValue, colName, fieldMap)
         } else {
@@ -349,7 +342,6 @@ func getColumnNames(dest interface{}) ([]string, error) {
 // collectColumnNames recursively collects column names from the struct fields
 func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
     t := v.Type()
-    scannerType := reflect.TypeOf((*sql.Scanner)(nil)).Elem()
     for i := 0; i < v.NumField(); i++ {
         field := t.Field(i)
         fieldValue := v.Field(i)
@@ -375,11 +367,6 @@ func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
             colName = prefix + "_" + tag
         } else {
             colName = tag
-        }
-
-        if fieldValue.Addr().Type().Implements(scannerType) {
-            *columns = append(*columns, colName)
-            continue
         }
 
         if fieldValue.Kind() == reflect.Struct {
