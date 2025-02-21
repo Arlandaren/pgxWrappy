@@ -349,6 +349,7 @@ func getColumnNames(dest interface{}) ([]string, error) {
 // collectColumnNames recursively collects column names from the struct fields
 func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
     t := v.Type()
+    scannerType := reflect.TypeOf((*sql.Scanner)(nil)).Elem()
     for i := 0; i < v.NumField(); i++ {
         field := t.Field(i)
         fieldValue := v.Field(i)
@@ -374,6 +375,11 @@ func collectColumnNames(v reflect.Value, prefix string, columns*[]string) {
             colName = prefix + "_" + tag
         } else {
             colName = tag
+        }
+
+        if fieldValue.Addr().Type().Implements(scannerType) {
+            *columns = append(*columns, colName)
+            continue
         }
 
         if fieldValue.Kind() == reflect.Struct {
