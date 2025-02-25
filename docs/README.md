@@ -1,304 +1,321 @@
-# Пакет `pgxWrappy`
+# PgxWrappy
+### PostgreSQL Wrapper Library for Convenient Scanning of Nested Structures
 
-Пакет `pgxWrappy` предоставляет удобную обёртку над библиотекой [pgx](https://github.com/jackc/pgx) для работы с базой данных PostgreSQL. Он упрощает выполнение SQL-запросов, обработку результатов и управление транзакциями, предоставляя высокоуровневые функции для взаимодействия с базой данных.
+This library provides a convenient wrapper around the [pgx](https://github.com/jackc/pgx) library developed by [Jack Christensen](https://github.com/jackc). It simplifies database interactions with PostgreSQL by allowing easy scanning of query results into nested Go structures and slices.
 
-## Содержание
+If you've ever encountered the inconvenience of scanning and retrieving lists with `pgx`, this tool allows you to fully enjoy the `pgx` library by simplifying these operations.
 
-- [Установка](#установка)
-- [Использование](#использование)
-- [Структура `Wrapper`](#структура-wrapper)
-- [Доступные методы](#доступные-методы)
-    - [`QueryRow`](#queryrow)
-    - [`Query`](#query)
-    - [`Exec`](#exec)
-    - [`Get`](#get)
-    - [`Select`](#select)
-- [Транзакции](#транзакции)
-    - [Начало транзакции](#начало-транзакции)
-    - [Методы транзакции](#методы-транзакции)
-- [Примеры использования](#примеры-использования)
-- [Обратная связь](#обратная-связь)
+## Key Features
 
-## Установка
+- **Easy Scanning into Nested Structures**: Automatically maps SQL query results to Go structs, including nested structs.
+- **Convenient Handling of Slices**: Supports scanning multiple rows into slices of structs or pointers to structs.
+- **Transaction Support**: Provides wrappers for transactional operations with methods for beginning, committing, and rolling back transactions.
+- **Integration with pgx**: Built on top of the high-performance [pgx](https://github.com/jackc/pgx) PostgreSQL driver, leveraging its robust features and reliability.
 
-Используйте `go get` для установки пакета:
+---
+
+## Table of Contents
+
+- [PgxWrappy](#pgxwrappy)
+    - [PostgreSQL Wrapper Library for Convenient Scanning of Nested Structures](#postgresql-wrapper-library-for-convenient-scanning-of-nested-structures)
+  - [Key Features](#key-features)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [import package](#import-package)
+    - [Initializing the Wrapper](#initializing-the-wrapper)
+    - [Executing Queries](#executing-queries)
+    - [Scanning into Structs](#scanning-into-structs)
+      - [Get Method](#get-method)
+      - [Select Method](#select-method)
+    - [Transactions](#transactions)
+  - [Field Tag Naming](#field-tag-naming)
+  - [Why Choose `pgx` and `pgxWrappy`](#why-choose-pgx-and-pgxwrappy)
+    - [Brief Comparison with Other PostgreSQL Drivers](#brief-comparison-with-other-postgresql-drivers)
+      - [`database/sql` Standard Library](#databasesql-standard-library)
+      - [`pq` Driver](#pq-driver)
+      - [`pgx` Driver](#pgx-driver)
+    - [Conclusion](#conclusion)
+  - [Contributing](#contributing)
+  - [License](#license)
+
+---
+
+## Installation
+
+To use this library, you need to have Go installed and set up. Import the package into your project:
 
 ```bash
-go get -u github.com/Arlandaren/pgxWrappy/pkg/postgres
+go get -u github.com/Arlandaren/pgxWrappy
 ```
 
-## Использование
+---
 
-Импортируйте пакет в ваш проект:
+## Usage
 
+### import package
 ```go
 import "github.com/Arlandaren/pgxWrappy/pkg/postgres"
 ```
 
-## Структура `Wrapper`
+### Initializing the Wrapper
 
-Основной структурой пакета является `Wrapper`, которая содержит пул соединений с базой данных и предоставляет методы для выполнения запросов.
-
-### Создание обёртки
+First, you need to initialize a connection pool using `pgxpool` and then create a new wrapper instance.
 
 ```go
-// Инициализация пула соединений
-config, err := pgxpool.ParseConfig(connectionString)
-if err != nil {
-    // обработка ошибки
-}
+import (
+    "context"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/Arlandaren/pgxWrappy/pkg/postgres"
+)
 
-pool, err := pgxpool.NewWithConfig(context.Background(), config)
-if err != nil {
-    // обработка ошибки
-}
-
-// Создание обёртки
-db := postgres.NewWrapper(pool)
-```
-
-## Доступные методы
-
-### `QueryRow`
-
-Выполняет запрос, который ожидает одну строку результата. Возвращает объект `pgx.Row`.
-
-```go
-func (w *Wrapper) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
-```
-
-**Пример использования:**
-
-```go
-row := db.QueryRow(ctx, "SELECT name FROM users WHERE id=$1", userID)
-var name string
-err := row.Scan(&name)
-if err != nil {
-    // обработка ошибки
-}
-```
-
-### `Query`
-
-Выполняет запрос, который может возвращать несколько строк. Возвращает `pgx.Rows`.
-
-```go
-func (w*Wrapper) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
-```
-
-**Пример использования:**
-
-```go
-rows, err := db.Query(ctx, "SELECT id, name FROM users")
-if err != nil {
-    // обработка ошибки
-}
-defer rows.Close()
-
-for rows.Next() {
-    var id int
-    var name string
-    err := rows.Scan(&id, &name)
+func main() {
+    ctx := context.Background()
+    pool, err := pgxpool.New(ctx, "postgres://username:password@localhost:5432/database")
     if err != nil {
-        // обработка ошибки
+        // Handle error
     }
-    // обработка данных
+    dbWrapper := pgxwrappy.NewWrapper(pool)
+    // Use dbWrapper for database operations
 }
 ```
 
-### `Exec`
+---
 
-Выполняет команду, не возвращающую строк (например, `INSERT`, `UPDATE`, `DELETE`).
+### Executing Queries
 
-```go
-func (w *Wrapper) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
-```
-
-**Пример использования:**
+You can execute queries using the `QueryRow`, `Query`, and `Exec` methods, which are wrappers around the corresponding `pgx` methods.
 
 ```go
-_, err := db.Exec(ctx, "UPDATE users SET name=$1 WHERE id=$2", newName, userID)
-if err != nil {
-    // обработка ошибки
-}
+// Executing a query that returns a single row
+row := dbWrapper.QueryRow(ctx, "SELECT id, name FROM users WHERE id=$1", userID)
+
+// Executing a query that returns multiple rows
+rows, err := dbWrapper.Query(ctx, "SELECT id, name FROM users")
+
+// Executing a command that doesn't return rows
+_, err := dbWrapper.Exec(ctx, "UPDATE users SET name=$1 WHERE id=$2", newName, userID)
 ```
 
-### Примечание к запросам на получение данных
+---
 
-Имеется поддержка сканирования во вложенную структуру, для этого указывайте тег `db:"-"`.
+### Scanning into Structs
 
-Пример:
+#### Get Method
 
-```go
-type OuterStruct struct {
-    Field1 int         `db:"field1"`
-    Inner  InnerStruct `db:"-"`
-}
-
-type InnerStruct struct {
-    Field2 string `db:"field2"`
-}
-```
-
-Тогда сканирование будет проходить по тегам полей вложенной структуры.
-
-### `Get`
-
-Выполняет запрос, ожидающий одну строку результата, и сканирует данные в переданную структуру.
-
-```go
-func (w*Wrapper) Get(ctx context.Context, dest interface{}, sql string, args ...interface{}) error
-```
-
-**Пример использования:**
+The `Get` method executes a query that is expected to return a single row and scans the result into a struct.
 
 ```go
 type User struct {
-    ID   int
-    Name string
+    ID   int    `db:"id"`
+    Name string `db:"name"`
 }
 
 var user User
-err := db.Get(ctx, &user, "SELECT id, name FROM users WHERE id=$1", userID)
+err := dbWrapper.Get(ctx, &user, "SELECT id, name FROM users WHERE id=$1", userID)
 if err != nil {
-    // обработка ошибки
+    // Handle error
 }
+// Use the 'user' struct
 ```
 
-### `Select`
+#### Select Method
 
-Выполняет запрос, который может возвращать несколько строк, и сканирует данные в слайс структур.
-
-```go
-func (w *Wrapper) Select(ctx context.Context, dest interface{}, sqlStr string, args ...interface{}) error
-```
-
-**Пример использования:**
+The `Select` method executes a query that returns multiple rows and scans the results into a slice of structs.
 
 ```go
 var users []User
-err := db.Select(ctx, &users, "SELECT id, name FROM users")
+err := dbWrapper.Select(ctx, &users, "SELECT id, name FROM users")
 if err != nil {
-    // обработка ошибки
+    // Handle error
 }
+// Use the 'users' slice
 ```
 
-## Транзакции
+---
 
-Пакет предоставляет обёртку для транзакций через структуру `TxWrapper`.
+### Transactions
 
-### Начало транзакции
-
-Начать транзакцию можно с помощью метода `Begin`:
+You can perform transactional operations using the `Begin`, `BeginTx`, `Commit`, and `Rollback` methods.
 
 ```go
-func (w*Wrapper) Begin(ctx context.Context) (*TxWrapper, error)
-```
-
-Или с опциями транзакции:
-
-```go
-func (w*Wrapper) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (*TxWrapper, error)
-```
-
-**Пример использования:**
-
-```go
-tx, err := db.Begin(ctx)
+txWrapper, err := dbWrapper.Begin(ctx)
 if err != nil {
-    // обработка ошибки
-}
-defer tx.Rollback(ctx)
-
-// Выполнение операций в транзакции
-
-if err := tx.Commit(ctx); err != nil {
-    // обработка ошибки
-}
-```
-
-### Методы транзакции
-
-`TxWrapper` имеет такие же методы, что и `Wrapper`, для выполнения запросов внутри транзакции:
-
-- `QueryRow`
-- `Query`
-- `Exec`
-- `Get`
-- `Select`
-- `Commit`
-- `Rollback`
-
-**Пример использования методов транзакции:**
-
-```go
-// В рамках транзакции
-var user User
-err := tx.Get(ctx, &user, "SELECT id, name FROM users WHERE id=$1", userID)
-if err != nil {
-    // обработка ошибки
+    // Handle error
 }
 
-// Завершение транзакции
-if err := tx.Commit(ctx); err != nil {
-    // обработка ошибки
-}
-```
-
-## Примеры использования
-
-### Вставка данных с использованием транзакции
-
-```go
-tx, err := db.Begin(ctx)
-if err != nil {
-    // обработка ошибки
-}
-defer tx.Rollback(ctx)
-
-_, err = tx.Exec(ctx, "INSERT INTO users (name) VALUES ($1)", "Alice")
-if err != nil {
-    // обработка ошибки
-}
-
-if err := tx.Commit(ctx); err != nil {
-    // обработка ошибки
-}
-```
-
-### Получение списка пользователей
-
-```go
-var users []User
-err := db.Select(ctx, &users, "SELECT id, name FROM users")
-if err != nil {
-    // обработка ошибки
-}
-
-for_, user := range users {
-    fmt.Printf("User ID: %d, Name: %s\n", user.ID, user.Name)
-}
-```
-
-### Обработка одной строки результата
-
-```go
-var user User
-err := db.Get(ctx, &user, "SELECT id, name FROM users WHERE id=$1", 1)
-if err != nil {
-    if errors.Is(err, pgx.ErrNoRows) {
-        fmt.Println("Пользователь не найден")
+defer func() {
+    if err != nil {
+        txWrapper.Rollback(ctx)
     } else {
-        // обработка ошибки
+        txWrapper.Commit(ctx)
     }
-} else {
-    fmt.Printf("User ID: %d, Name: %s\n", user.ID, user.Name)
+}()
+
+// Perform transactional operations using txWrapper
+err = txWrapper.Exec(ctx, "UPDATE accounts SET balance=balance-$1 WHERE id=$2", amount, fromAccountID)
+if err != nil {
+    return err
+}
+
+err = txWrapper.Exec(ctx, "UPDATE accounts SET balance=balance+$1 WHERE id=$2", amount, toAccountID)
+if err != nil {
+    return err
 }
 ```
 
+---
 
-## Обратная связь
+## Field Tag Naming
 
-Если у вас есть вопросы или предложения, пожалуйста, создайте issue или отправьте pull request в репозитории GitHub.
+**Note**: To ensure correct scanning of query results into your structs, it's important to use the `db` struct tags to match the column names in your database. The tags should correspond exactly to the column names or use appropriate mapping if the names differ.
+
+```go
+type User struct {
+    ID        int    `db:"id"`
+    FirstName string `db:"first_name"`
+    LastName  string `db:"last_name"`
+    Email     string `db:"email"`
+}
+```
+
+For nested structs, the field tags are used to flatten the structure during scanning.
+
+```go
+type Address struct {
+    Street  string `db:"street"`
+    City    string `db:"city"`
+    ZipCode string `db:"zip_code"`
+}
+
+type User struct {
+    ID      int     `db:"id"`
+    Name    string  `db:"name"`
+    Address Address
+}
+```
+
+In your SQL query, you should alias the columns appropriately:
+
+```sql
+SELECT
+    id,
+    name,
+    street AS address_street,
+    city AS address_city,
+    zip_code AS address_zip_code
+FROM users
+```
+
+This ensures that the scanning process correctly maps the SQL result columns to the fields in your nested structs.
+
+---
+
+## Why Choose `pgx` and `pgxWrappy`
+
+When working with PostgreSQL in Go, developers have several driver options to choose from. **`pgx`** stands out among other drivers for several reasons, and **`pgxWrappy`** addresses some of the common inconveniences developers face.
+
+### Brief Comparison with Other PostgreSQL Drivers
+
+#### `database/sql` Standard Library
+
+- **Description**: Go's standard library interface for SQL databases.
+- **Pros**:
+  - Familiar interface for Go developers.
+  - Supports multiple database backends.
+- **Cons**:
+  - Requires driver-specific implementations for full PostgreSQL features.
+  - Less performant due to generalized abstractions.
+  - Limited support for PostgreSQL-specific data types and features.
+  - **Inconvenient Scanning**: Requires manual scanning of rows into variables, leading to verbose and repetitive code.
+
+#### `pq` Driver
+
+- **Description**: Pure Go driver for PostgreSQL, compatible with `database/sql`.
+- **Pros**:
+  - Simple and reliable for basic operations.
+  - Widely used and tested.
+- **Cons**:
+  - No longer actively developed with new features.
+  - Limited performance optimizations.
+  - Doesn't support advanced PostgreSQL features out of the box.
+  - **Inefficient Scanning**: Similar to `database/sql`, scanning rows can be cumbersome and boilerplate-heavy.
+
+#### `pgx` Driver
+
+- **Description**: High-performance PostgreSQL driver and toolkit for Go, developed by [Jack Christensen](https://github.com/jackc).
+- **Pros**:
+  - **Best-in-Class Performance**: Optimized for speed and efficiency.
+  - **Full PostgreSQL Feature Support**: Access to advanced data types and protocols.
+  - **Active Development**: Regular updates and community support.
+  - **Flexibility**: Can be used with or without `database/sql`.
+- **Cons**:
+  - Slightly steeper learning curve due to extensive features.
+  - **Inconvenient Scanning of Nested Structures**: While `pgx` is powerful, scanning query results into complex nested structs or slices requires manual code and can be cumbersome.
+
+### Conclusion
+
+**`pgx` is the best option for Go developers working with PostgreSQL**, offering superior performance, comprehensive feature support, and active maintenance.
+
+By using **`pgx`** in conjunction with **`pgxWrappy`**, you further enhance your development experience:
+
+- **Ease of Development**: Simplified scanning of query results into nested structures without boilerplate code.
+- **Enhanced Productivity**: Focus on application logic rather than handling complex data mappings.
+- **High Performance**: Leverage `pgx`'s speed while enjoying a more convenient API.
+- **Seamless Transactions**: Intuitive methods for managing database transactions.
+
+---
+
+**Example Usage with `pgxWrappy`:**
+
+```go
+import (
+    "context"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/Arlandaren/pgxWrappy/pkg/postgres"
+)
+
+func main() {
+    ctx := context.Background()
+    pool, err := pgxpool.New(ctx, "postgres://username:password@localhost:5432/database")
+    if err != nil {
+        // Handle error
+    }
+    dbWrapper := pgxwrappy.NewWrapper(pool)
+    // Use dbWrapper for database operations
+
+    // And other methods see above.
+}
+```
+
+---
+
+By choosing `pgx` paired with `pgxWrappy`, you embrace the most efficient and developer-friendly tools for PostgreSQL in Go. This combination allows you to fully enjoy the capabilities of `pgx`, making your database interactions smoother and more effective.
+
+---
+
+
+If you've ever encountered the inconvenience of scanning and retrieving lists with `pgx`, this tool allows you to fully enjoy the `pgx` library by simplifying these operations. By focusing on convenient scanning of nested structures and slices, this library aims to make database operations in Go more straightforward and efficient. It addresses common pain points that developers face when dealing with database interactions, especially the boilerplate code required for scanning query results into complex data structures.
+
+Using this library, you can reduce code redundancy, improve readability, and maintain high performance in your applications. It's an excellent choice for developers who need more than what the standard library offers but prefer to avoid the overhead of a full ORM.
+
+---
+
+**Note**: This library builds upon the [pgx](https://github.com/jackc/pgx) PostgreSQL driver for Go, developed by [Jack Christensen](https://github.com/jackc). Special thanks to him for creating and maintaining such a high-performance and feature-rich driver.
+
+---
+## Contributing
+
+Contributions are welcome! If you find a bug or want to add a feature, please open an issue or submit a pull request on [GitHub](https://github.com/yourusername/pgxwrappy).
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+By integrating `pgxWrappy` into your projects, you streamline your database interactions and harness the full power of `pgx` with added convenience. Give it a try and experience more efficient and enjoyable database programming in Go, just take a [first step](#installation)
 
 ---
