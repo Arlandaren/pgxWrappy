@@ -52,7 +52,9 @@ If you've ever encountered the inconvenience of scanning and retrieving lists wi
   - [License](#license)
 
 ---
+Documentation can be found [here](https://github.com/Arlandaren/pgxWrappy/wiki/Documentation).
 
+---
 ## Installation
 
 To use this library, you need to have Go installed and set up. Import the package into your project:
