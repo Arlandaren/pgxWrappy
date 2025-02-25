@@ -1,4 +1,15 @@
 # PgxWrappy
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/Arlandaren/pgxWrappy.svg)](https://pkg.go.dev/github.com/Arlandaren/pgxWrappy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Arlandaren/pgxWrappy)](https://goreportcard.com/report/github.com/Arlandaren/pgxWrappy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Arlandaren/pgxWrappy)](https://golang.org/)
+[![GitHub Stars](https://img.shields.io/github/stars/Arlandaren/pgxWrappy.svg?style=social&label=Star)](https://github.com/Arlandaren/pgxWrappy)
+[![Issues](https://img.shields.io/github/issues/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/issues)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/commits/main)
+[![GitHub Contributors](https://img.shields.io/github/contributors/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/graphs/contributors)
+[![Repo Size](https://img.shields.io/github/repo-size/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy)
+
 ### PostgreSQL Wrapper Library for Convenient Scanning of Nested Structures
 
 This library provides a convenient wrapper around the [pgx](https://github.com/jackc/pgx) library developed by [Jack Christensen](https://github.com/jackc). It simplifies database interactions with PostgreSQL by allowing easy scanning of query results into nested Go structures and slices.
