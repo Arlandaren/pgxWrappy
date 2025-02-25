@@ -4,12 +4,12 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Arlandaren/pgxWrappy)](https://goreportcard.com/report/github.com/Arlandaren/pgxWrappy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Arlandaren/pgxWrappy)](https://golang.org/)
-[![GitHub Stars](https://img.shields.io/github/stars/Arlandaren/pgxWrappy.svg?style=social&label=Star)](https://github.com/Arlandaren/pgxWrappy)
-[![GitHub Forks](https://img.shields.io/github/forks/Arlandaren/pgxWrappy.svg?style=social&label=Fork)](https://github.com/Arlandaren/pgxWrappy)
 [![Issues](https://img.shields.io/github/issues/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/issues)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/commits/main)
 [![GitHub Contributors](https://img.shields.io/github/contributors/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy/graphs/contributors)
 [![Repo Size](https://img.shields.io/github/repo-size/Arlandaren/pgxWrappy)](https://github.com/Arlandaren/pgxWrappy)
+[![GitHub Stars](https://img.shields.io/github/stars/Arlandaren/pgxWrappy.svg?style=social&label=Star)](https://github.com/Arlandaren/pgxWrappy)
+[![GitHub Forks](https://img.shields.io/github/forks/Arlandaren/pgxWrappy.svg?style=social&label=Fork)](https://github.com/Arlandaren/pgxWrappy)
 
 ### PostgreSQL Wrapper Library for Convenient Scanning of Nested Structures
 

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  golangci-lint:
+    name: runner / golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v2
+
+  yamllint:
+    name: runner / yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-yamllint@v1
+        with:
+          fail_on_error: true
+          reporter: github-pr-review
+          yamllint_flags: '-d "{extends: default, rules: {truthy: disable}}" .'
+
+  check-dependencies:
+    name: runner / check-dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+
+  #     - name: WriteGoList
+  #       run: go list -json -mod=vendor cmd/grpc_server/main.go > go.list
+
+  #     - name: Nancy
+  #       uses: sonatype-nexus-community/nancy-github-action@main
+  #       continue-on-error: true
+
+  # test:
+  #   name: runner / test
+  #   needs: [golangci-lint, yamllint, hadolint, dotenv-linter, check-dependencies]
+  #   runs-on: ubuntu-latest
+  #   container: golang:1.23-alpine
+  #   services:
+  #     db:
+  #       image: postgres:16-alpine
+  #       env:
+  #         TZ: UTC
+  #         POSTGRES_USER: testuser
+  #         POSTGRES_PASSWORD: testpass
+  #         POSTGRES_DB: testdb
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-go@v5
+  #       with:
+  #         go-version: 1.23
+  #     - name: Test
+  #       run: go test -v ./...
+  #       env:
+  #         APP_DATABASE_DSN: postgres://testuser:testpass@db:5432/testdb?sslmode=disable
