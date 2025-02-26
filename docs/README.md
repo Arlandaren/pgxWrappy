@@ -223,6 +223,10 @@ FROM users
 
 This ensures that the scanning process correctly maps the SQL result columns to the fields in your nested structs.
 
+
+- It is also possible to give a tag `db:"address"`, then the expected columns in the query would be: `address_street`, `address_city`, `address_zip_code`
+
+Use the way that suits your situataion.
 ---
 
 ## Why Choose `pgx` and `pgxWrappy`
