@@ -205,7 +205,7 @@ type Address struct {
 type User struct {
     ID      int     `db:"id"`
     Name    string  `db:"name"`
-    Address Address
+    Address Address `db:"-"`
 }
 ```
 
