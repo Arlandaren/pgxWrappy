@@ -215,9 +215,9 @@ In your SQL query, you should alias the columns appropriately:
 SELECT
     id,
     name,
-    street AS address_street,
-    city AS address_city,
-    zip_code AS address_zip_code
+    street,
+    city,
+    zip_code
 FROM users
 ```
 
