@@ -24,7 +24,7 @@ If you've ever encountered the inconvenience of scanning and retrieving lists wi
 - **Transaction Support**: Provides wrappers for transactional operations with methods for beginning, committing, and rolling back transactions.
 - **Integration with pgx**: Built on top of the high-performance [pgx](https://github.com/jackc/pgx) PostgreSQL driver, leveraging its robust features and reliability.
 
-And even Jacks mentioned this lib. [here](https://github.com/jackc/pgx?tab=readme-ov-file#httpsgithubcomarlandarenpgxwrappy:~:text=jackc/pgx%20driver.-,https%3A//github.com/Arlandaren/pgxWrappy,working%20with%20the%20pgx%20library%2C%20providing%20convenient%20scanning%20of%20nested%20structures.,-About)
+And even Jacks has mentioned this lib [here](https://github.com/jackc/pgx?tab=readme-ov-file#httpsgithubcomarlandarenpgxwrappy:~:text=jackc/pgx%20driver.-,https%3A//github.com/Arlandaren/pgxWrappy,working%20with%20the%20pgx%20library%2C%20providing%20convenient%20scanning%20of%20nested%20structures.,-About).
 ---
 
 ## Table of Contents
