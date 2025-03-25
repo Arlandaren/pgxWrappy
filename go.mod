@@ -2,7 +2,7 @@ module github.com/Arlandaren/pgxWrappy
 
 go 1.23.2
 
-require github.com/jackc/pgx/v5 v5.7.2
+require github.com/jackc/pgx/v5 v5.7.4
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
