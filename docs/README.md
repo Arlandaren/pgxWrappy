@@ -81,7 +81,7 @@ First, you need to initialize a connection pool using `pgxpool` and then create 
 import (
     "context"
     "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/Arlandaren/pgxWrappy/pkg/postgres"
+    pgxwrappy "github.com/Arlandaren/pgxWrappy/pkg/postgres"
 )
 
 func main() {
