@@ -38,37 +38,30 @@ jobs:
         with:
           go-version: 1.23
 
-  #     - name: WriteGoList
-  #       run: go list -json -mod=vendor cmd/grpc_server/main.go > go.list
-
-  #     - name: Nancy
-  #       uses: sonatype-nexus-community/nancy-github-action@main
-  #       continue-on-error: true
-
-  # test:
-  #   name: runner / test
-  #   needs: [golangci-lint, yamllint, hadolint, dotenv-linter, check-dependencies]
-  #   runs-on: ubuntu-latest
-  #   container: golang:1.23-alpine
-  #   services:
-  #     db:
-  #       image: postgres:16-alpine
-  #       env:
-  #         TZ: UTC
-  #         POSTGRES_USER: testuser
-  #         POSTGRES_PASSWORD: testpass
-  #         POSTGRES_DB: testdb
-  #       options: >-
-  #         --health-cmd pg_isready
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-go@v5
-  #       with:
-  #         go-version: 1.23
-  #     - name: Test
-  #       run: go test -v ./...
-  #       env:
-  #         APP_DATABASE_DSN: postgres://testuser:testpass@db:5432/testdb?sslmode=disable
+  test:
+    name: runner / test
+    needs: [golangci-lint, yamllint, check-dependencies]
+    runs-on: ubuntu-latest
+    container: golang:1.23-alpine
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          TZ: UTC
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+      - name: Test
+        run: go test -v ./...
+        env:
+          TEST_DATABASE_DSN: postgres://testuser:testpass@db:5432/testdb?sslmode=disable
